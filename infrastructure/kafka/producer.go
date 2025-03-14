@@ -53,7 +53,7 @@ func (p *Producer) Publish(message domain.Message) error {
 	kafkaMsg := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
-			Partition: int32(message.Partition),
+			Partition: kafka.PartitionAny,
 		},
 		Key:   []byte(message.Key),
 		Value: []byte(message.Value),

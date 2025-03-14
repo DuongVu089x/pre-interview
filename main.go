@@ -40,6 +40,20 @@ import (
 // }
 
 func main() {
+	// var arr1 [5]int
+	// arr1[0] = 1
+	// arr1[1] = 2
+	// arr1[2] = 3
+	// arr1[3] = 4
+	// arr1[4] = 5
+
+	// a := new(*int)
+	// fmt.Println(a)
+
+	// return
+
+	// lfu.TestLFU()
+	// return
 	// fmt.Println(lengthOfLongestSubstring("abcbacbb"))
 
 	// Initialize Kafka producer with config from your YAML
