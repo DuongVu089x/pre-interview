@@ -1,7 +1,9 @@
 package kafka
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/DuongVu089x/pre-interview/application/port"
 	"github.com/DuongVu089x/pre-interview/domain"
@@ -46,17 +48,27 @@ func (p *Producer) Publish(message domain.Message) error {
 		topic = p.defaultTopic
 	}
 
+	// add timestamp to meta
+	if message.Value.Meta == nil {
+		message.Value.Meta = &domain.MetaData{}
+	}
+	message.Value.Meta.Timestamp = time.Now().UnixNano()
+
 	// Create delivery channel for this specific message
 	deliveryChan := make(chan kafka.Event)
 	defer close(deliveryChan)
 
+	jsonValue, err := json.Marshal(message.Value)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message value: %w", err)
+	}
 	kafkaMsg := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &topic,
 			Partition: kafka.PartitionAny,
 		},
 		Key:   []byte(message.Key),
-		Value: []byte(message.Value),
+		Value: jsonValue,
 	}
 
 	// Produce with delivery channel

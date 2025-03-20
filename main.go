@@ -96,18 +96,54 @@ func main() {
 	// Create and publish a message
 	messages := []domain.Message{
 		{
-			Key:   "OD0001",
-			Value: "Order 1",
+			Key: "OD0001",
+			Value: domain.MessageValue{
+				Meta: &domain.MetaData{
+					MessageID: "OD0001",
+					ServiceID: "orders-service",
+					Timestamp: time.Now().UnixNano(),
+				},
+				MessageCode: "OD0001",
+				Payload: map[string]interface{}{
+					"order_id": "OD0001",
+					"amount":   100.0,
+					"status":   "pending",
+				},
+			},
 			Topic: "orders-topic",
 		},
 		{
-			Key:   "PA0001",
-			Value: "Payment 1",
+			Key: "PA0001",
+			Value: domain.MessageValue{
+				Meta: &domain.MetaData{
+					MessageID: "PA0001",
+					ServiceID: "payments-service",
+					Timestamp: time.Now().UnixNano(),
+				},
+				MessageCode: "PA0001",
+				Payload: map[string]interface{}{
+					"payment_id": "PA0001",
+					"amount":     100.0,
+					"status":     "pending",
+				},
+			},
 			Topic: "payments-topic",
 		},
 		{
-			Key:   "US0001",
-			Value: "User 1",
+			Key: "US0001",
+			Value: domain.MessageValue{
+				Meta: &domain.MetaData{
+					MessageID: "US0001",
+					ServiceID: "users-service",
+					Timestamp: time.Now().UnixNano(),
+				},
+				MessageCode: "US0001",
+				Payload: map[string]interface{}{
+					"user_id": "US0001",
+					"name":    "John Doe",
+					"email":   "john.doe@example.com",
+				},
+			},
 			Topic: "users-topic",
 		},
 	}
@@ -131,7 +167,16 @@ func main() {
 		AutoOffsetReset:  "earliest",
 	}
 
-	consumer, err := kafka.NewConsumer(consumerConfig)
+	retryConfig := kafka.RetryConfig{
+		RetryTopicSuffix:    "-retry",
+		DLQTopicSuffix:      "-dlq",
+		MaxRetryAttempts:    3,
+		RetryBackoffInitial: 1 * time.Second,
+		RetryBackoffMax:     1 * time.Minute,
+		RetryBackoffFactor:  2,
+	}
+
+	consumer, err := kafka.NewRetryableConsumer(consumerConfig, config, retryConfig)
 	if err != nil {
 		log.Fatalf("Failed to create consumer: %s", err)
 	}
@@ -140,8 +185,14 @@ func main() {
 	{
 		// Register different handlers for different topics
 		err = consumer.RegisterHandler("orders-topic", func(msg domain.Message) error {
-			fmt.Printf("Processing order: %s, key: %s, topic: %s, partition: %d, offset: %d\n", msg.Value, msg.Key, msg.Topic, msg.Partition, msg.Offset)
+			fmt.Printf("Processing order: key: %s, topic: %s, partition: %d, offset: %d\n", msg.Key, msg.Topic, msg.Partition, msg.Offset)
 			// Order-specific business logic
+
+			// Simulate random failures (50% chance)
+			if time.Now().UnixNano()%2 == 0 {
+				return fmt.Errorf("simulated processing error")
+			}
+
 			return nil
 		})
 		if err != nil {
@@ -149,7 +200,7 @@ func main() {
 		}
 
 		err = consumer.RegisterHandler("payments-topic", func(msg domain.Message) error {
-			fmt.Printf("Processing payment: %s, key: %s, topic: %s, partition: %d, offset: %d\n", msg.Value, msg.Key, msg.Topic, msg.Partition, msg.Offset)
+			fmt.Printf("Processing payment: key: %s, topic: %s, partition: %d, offset: %d\n", msg.Key, msg.Topic, msg.Partition, msg.Offset)
 			// Payment-specific business logic
 			return nil
 		})
@@ -158,7 +209,7 @@ func main() {
 		}
 
 		err = consumer.RegisterHandler("users-topic", func(msg domain.Message) error {
-			fmt.Printf("Processing user event: %s, key: %s, topic: %s, partition: %d, offset: %d\n", msg.Value, msg.Key, msg.Topic, msg.Partition, msg.Offset)
+			fmt.Printf("Processing user event: key: %s, topic: %s, partition: %d, offset: %d\n", msg.Key, msg.Topic, msg.Partition, msg.Offset)
 			// User-specific business logic
 			return nil
 		})
@@ -186,6 +237,27 @@ func main() {
 			log.Fatalf("Consumer error: %s", err)
 		}
 	}()
+
+	for i := 1; i <= 10; i++ {
+		msg := domain.Message{
+			Key: fmt.Sprintf("order-%d", i),
+			Value: domain.MessageValue{
+				Meta: &domain.MetaData{
+					MessageID: fmt.Sprintf("order-%d", i),
+					ServiceID: "orders-service",
+					Timestamp: time.Now().UnixNano(),
+				},
+				MessageCode: fmt.Sprintf("OD000%d", i),
+				Payload: map[string]interface{}{
+					"order_id": fmt.Sprintf("OD000%d", i),
+					"amount":   100.0,
+					"status":   "pending",
+				},
+			},
+			Topic: "orders-topic",
+		}
+		producer.Publish(msg)
+	}
 
 	// Wait for termination
 	<-ctx.Done()

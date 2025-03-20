@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -69,9 +70,14 @@ func (c *Consumer) Start(ctx context.Context) error {
 			}
 
 			// Convert Kafka message to domain message
+			value := domain.MessageValue{}
+			err = json.Unmarshal(msg.Value, &value)
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal message value: %w", err)
+			}
 			domainMsg := domain.Message{
 				Key:       string(msg.Key),
-				Value:     string(msg.Value),
+				Value:     value,
 				Topic:     *msg.TopicPartition.Topic,
 				Partition: int(msg.TopicPartition.Partition),
 				Offset:    int64(msg.TopicPartition.Offset),

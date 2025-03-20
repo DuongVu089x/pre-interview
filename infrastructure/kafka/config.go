@@ -1,6 +1,10 @@
 package kafka
 
-import "github.com/confluentinc/confluent-kafka-go/kafka"
+import (
+	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
+)
 
 // TopicConfig holds configuration for a Kafka topic
 type TopicConfig struct {
@@ -15,6 +19,23 @@ type ProducerConfig struct {
 	SecurityProtocol string
 	DefaultTopic     string
 	Topics           []TopicConfig // Add topic configurations
+}
+
+// RetryConfig holds configuration for retry behavior
+type RetryConfig struct {
+	// Retry topics configuration
+	RetryTopicSuffix    string        // Suffix for retry topic (e.g., "-retry")
+	DLQTopicSuffix      string        // Suffix for dead letter queue topic (e.g., "-dlq")
+	MaxRetryAttempts    int           // Maximum number of retry attempts before sending to DLQ
+	RetryBackoffInitial time.Duration // Initial backoff duration
+	RetryBackoffMax     time.Duration // Maximum backoff duration
+	RetryBackoffFactor  float64       // Backoff multiplier between retries
+
+	// Optional function to customize backoff time based on retry count
+	BackoffStrategy func(attempt int) time.Duration
+
+	// Clone producer config
+	CloneProducerConfig ProducerConfig
 }
 
 // ConsumerConfig holds Kafka consumer configuration
